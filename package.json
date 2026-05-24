@@ -1,0 +1,30 @@
+{
+  "name": "memkit",
+  "version": "0.1.0",
+  "description": "Intelligent memory middleware for Claude Code — relevance-filtered injection, token-aware compression, cross-plugin context orchestration",
+  "main": "dist/index.js",
+  "bin": {
+    "memkit": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src"
+  },
+  "dependencies": {
+    "@anthropic-ai/tokenizer": "^0.0.4",
+    "@iarna/toml": "^2.2.5",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^9.4.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  },
+  "keywords": ["claude-code", "mcp", "memory", "claude-mem", "plugin"],
+  "license": "MIT"
+}

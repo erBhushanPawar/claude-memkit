@@ -1,0 +1,25 @@
+{
+  "name": "memkit",
+  "display_name": "MemKit",
+  "version": "0.1.0",
+  "description": "Intelligent memory middleware — relevance-filtered injection, token budgets, and compression for claude-mem",
+  "author": "bhushan",
+  "license": "MIT",
+  "mcp_server": {
+    "command": "node",
+    "args": ["dist/index.js"],
+    "env": {}
+  },
+  "hooks": {
+    "SessionStart": {
+      "command": "node",
+      "args": ["dist/hooks/session-start.js"]
+    }
+  },
+  "permissions": [
+    "filesystem:read:~/.config/memkit",
+    "filesystem:write:~/.config/memkit",
+    "mcp:claude-mem"
+  ],
+  "tags": ["memory", "context", "injection", "token-optimization"]
+}

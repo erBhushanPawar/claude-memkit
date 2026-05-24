@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "memkit": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/bhushan/work/memkit/dist/index.js"]
+    }
+  }
+}

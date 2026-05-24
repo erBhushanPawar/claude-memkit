@@ -1,18 +1,8 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { loadConfig } from '../config';
 import { scoreObservation, ScoredObservation } from '../scorer/quality-scorer';
 import { compressObservation } from '../compressor/observation-compressor';
 import { canFit, spend } from './budget';
-import { upsertScore } from '../db/sidecar';
-
-interface RawObservation {
-  id: string;
-  title: string;
-  body: string;
-  created_at: string;
-  relevance_score?: number;
-}
+import { searchObservations, getAllObservations, Observation } from '../db/sidecar';
 
 export interface InjectionResult {
   injected: ScoredObservation[];
@@ -26,26 +16,17 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-async function queryClaudeMem(query: string, limit: number): Promise<RawObservation[]> {
-  const transport = new StdioClientTransport({
-    command: 'npx',
-    args: ['claude-mem', 'mcp'],
-  });
-
-  const client = new Client({ name: 'memkit', version: '0.1.0' }, { capabilities: {} });
-
+function queryObservations(query: string, limit: number): Observation[] {
   try {
-    await client.connect(transport);
-    const result = await client.callTool({
-      name: 'observation_context',
-      arguments: { query, limit },
-    });
-
-    const content = result.content as Array<{ type: string; text?: string }>;
-    const text = content.find((c) => c.type === 'text')?.text ?? '[]';
-    return JSON.parse(text) as RawObservation[];
-  } finally {
-    await client.close();
+    // Try FTS search first; fall back to recency if query is empty or too short
+    const q = query.trim();
+    if (q.length < 3) return getAllObservations(limit);
+    // Sanitize query for FTS5 — wrap in quotes to avoid syntax errors on special chars
+    const safe = q.replace(/"/g, '""');
+    const results = searchObservations(`"${safe}"`, limit);
+    return results.length > 0 ? results : getAllObservations(limit);
+  } catch {
+    return getAllObservations(limit);
   }
 }
 
@@ -55,25 +36,20 @@ export async function inject(query: string, budgetOverride?: number): Promise<In
   const maxObs = config.injector.max_observations;
   const minScore = config.injector.min_relevance_score;
 
-  let raw: RawObservation[] = [];
-  try {
-    raw = await queryClaudeMem(query, maxObs * 3);
-  } catch {
-    // claude-mem unavailable — return empty rather than crash
-    return { injected: [], totalConsidered: 0, tokensUsed: 0, naiveTokens: 0 };
-  }
+  const raw = queryObservations(query, maxObs * 3);
 
-  // Score all candidates
+  // Score all candidates — relevance_score approximated by FTS rank position
   const scored = raw
-    .map((obs) =>
-      scoreObservation(
+    .map((obs, i) => {
+      const relevance = Math.max(0.1, 1 - i * (1 / (raw.length || 1)));
+      return scoreObservation(
         obs.id,
         obs.title,
         obs.body,
         new Date(obs.created_at),
-        obs.relevance_score ?? 0.5,
-      ),
-    )
+        relevance,
+      );
+    })
     .filter((s) => s.finalScore >= minScore)
     .sort((a, b) => b.finalScore - a.finalScore)
     .slice(0, maxObs);
@@ -94,8 +70,6 @@ export async function inject(query: string, budgetOverride?: number): Promise<In
 
     injected.push({ ...obs, body: compressed });
     tokensUsed += tokens;
-
-    upsertScore(obs.id, obs.finalScore);
   }
 
   spend(tokensUsed, naiveTokens);

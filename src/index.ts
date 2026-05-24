@@ -106,7 +106,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         break;
       case 'memkit_add':
-        text = await observationAdd(
+        text = observationAdd(
           a.title as string,
           a.body as string,
           a.project_id as string,

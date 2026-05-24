@@ -21,6 +21,37 @@ export function getDb(): Database.Database {
 
 function migrate(db: Database.Database): void {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS observations (
+      id          TEXT PRIMARY KEY,
+      title       TEXT NOT NULL,
+      body        TEXT NOT NULL,
+      project_id  TEXT NOT NULL,
+      source      TEXT DEFAULT 'manual',
+      score       REAL NOT NULL DEFAULT 0,
+      created_at  INTEGER NOT NULL,
+      updated_at  INTEGER NOT NULL
+    );
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS observations_fts USING fts5(
+      title,
+      body,
+      content='observations',
+      content_rowid='rowid'
+    );
+
+    CREATE TRIGGER IF NOT EXISTS obs_ai AFTER INSERT ON observations BEGIN
+      INSERT INTO observations_fts(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS obs_ad AFTER DELETE ON observations BEGIN
+      INSERT INTO observations_fts(observations_fts, rowid, title, body) VALUES ('delete', old.rowid, old.title, old.body);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS obs_au AFTER UPDATE ON observations BEGIN
+      INSERT INTO observations_fts(observations_fts, rowid, title, body) VALUES ('delete', old.rowid, old.title, old.body);
+      INSERT INTO observations_fts(rowid, title, body) VALUES (new.rowid, new.title, new.body);
+    END;
+
     CREATE TABLE IF NOT EXISTS observation_scores (
       obs_id      TEXT PRIMARY KEY,
       score       REAL NOT NULL,
@@ -44,6 +75,76 @@ function migrate(db: Database.Database): void {
       project_id  TEXT
     );
   `);
+}
+
+export interface Observation {
+  id: string;
+  title: string;
+  body: string;
+  project_id: string;
+  source: string;
+  score: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export function addObservation(
+  id: string,
+  title: string,
+  body: string,
+  projectId: string,
+  source = 'manual',
+  score = 0,
+): void {
+  const db = getDb();
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO observations (id, title, body, project_id, source, score, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      title = excluded.title,
+      body = excluded.body,
+      score = excluded.score,
+      updated_at = excluded.updated_at
+  `).run(id, title, body, projectId, source, score, now, now);
+}
+
+export function searchObservations(query: string, limit = 20): Observation[] {
+  const db = getDb();
+  // FTS5 BM25 rank — lower rank = more relevant
+  return db.prepare(`
+    SELECT o.*
+    FROM observations o
+    JOIN observations_fts f ON o.rowid = f.rowid
+    WHERE observations_fts MATCH ?
+    ORDER BY rank
+    LIMIT ?
+  `).all(query, limit) as Observation[];
+}
+
+export function getAllObservations(limit = 50): Observation[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT * FROM observations ORDER BY updated_at DESC LIMIT ?
+  `).all(limit) as Observation[];
+}
+
+export function observationCount(): number {
+  const db = getDb();
+  const row = db.prepare('SELECT COUNT(*) as cnt FROM observations').get() as { cnt: number };
+  return row.cnt;
+}
+
+export function deleteObservation(id: string): void {
+  const db = getDb();
+  db.prepare('DELETE FROM observations WHERE id = ?').run(id);
+}
+
+export function getStaleByScore(threshold: number, olderThanMs: number): Observation[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT * FROM observations WHERE score < ? AND updated_at < ?
+  `).all(threshold, olderThanMs) as Observation[];
 }
 
 export function upsertScore(obsId: string, score: number, source = 'manual'): void {

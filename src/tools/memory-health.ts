@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getDb, getStaleObservations } from '../db/sidecar';
+import { observationCount, getStaleByScore } from '../db/sidecar';
 import { getBudgetStatus } from '../injector/budget';
 import { loadConfig, getConfigDir } from '../config';
 
@@ -19,21 +19,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-function observationCount(): number {
-  const db = getDb();
-  const row = db.prepare('SELECT COUNT(*) as cnt FROM observation_scores').get() as {
-    cnt: number;
-  };
-  return row.cnt;
-}
-
 export function memoryHealth(): string {
   const config = loadConfig();
   const budget = getBudgetStatus();
   const sizeBytes = dbSizeBytes();
   const sizeMb = sizeBytes / (1024 * 1024);
   const obsCount = observationCount();
-  const stale = getStaleObservations(config.scorer.stale_threshold);
+  const stale = getStaleByScore(config.scorer.stale_threshold, Date.now());
   const staleCount = stale.length;
 
   const dbStatus =

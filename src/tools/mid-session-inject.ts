@@ -11,7 +11,7 @@ export async function midSessionInject(
     return `[MemKit] Session budget exhausted (${status.used}/${status.total} tokens used). No additional context injected.`;
   }
 
-  const effectiveBudget = budgetOverride
+  const effectiveBudget = budgetOverride !== undefined
     ? Math.min(budgetOverride, status.remaining)
     : status.remaining;
 

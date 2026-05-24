@@ -114,7 +114,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
         break;
       default:
-        text = `Unknown tool: ${name}`;
+        return {
+          content: [{ type: 'text', text: `Unknown tool: ${name}` }],
+          isError: true,
+        };
     }
 
     return { content: [{ type: 'text', text }] };

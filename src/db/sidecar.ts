@@ -19,6 +19,13 @@ export function getDb(): Database.Database {
   return _db;
 }
 
+/** Only call from tests — resets the singleton to a fresh in-memory DB. */
+export function _resetDbForTesting(): void {
+  if (_db) { try { _db.close(); } catch { /* ignore */ } }
+  _db = new Database(':memory:');
+  migrate(_db);
+}
+
 function migrate(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS observations (
@@ -125,7 +132,7 @@ export function searchObservations(query: string, limit = 20): Observation[] {
 export function getAllObservations(limit = 50): Observation[] {
   const db = getDb();
   return db.prepare(`
-    SELECT * FROM observations ORDER BY updated_at DESC LIMIT ?
+    SELECT * FROM observations ORDER BY updated_at DESC, rowid DESC LIMIT ?
   `).all(limit) as Observation[];
 }
 

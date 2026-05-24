@@ -3,7 +3,8 @@ import { loadConfig } from '../config';
 const FILE_PATH_RE = /[\w.-]+\/[\w./-]+|~\/[\w./-]+/;
 const FUNCTION_NAME_RE = /\b[a-z][a-zA-Z0-9]{2,}\(|`[a-zA-Z_][a-zA-Z0-9_]+`/;
 const NUMBER_RE = /\b\d+(\.\d+)?\b/;
-const ERROR_CODE_RE = /\b[A-Z][A-Z0-9_]{2,}\b|error\s+\d+|E\d{3,}/i;
+// No /i flag — must be uppercase to count as an error code (avoids matching plain English words)
+const ERROR_CODE_RE = /\b[A-Z][A-Z0-9_]{2,}\b|error\s+\d+|E\d{3,}/;
 const URL_RE = /https?:\/\/\S+/;
 
 const ACTIONABILITY_PATTERNS = [

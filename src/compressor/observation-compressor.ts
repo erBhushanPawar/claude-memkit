@@ -1,5 +1,6 @@
 // Sentence-level rule-based compressor — no LLM calls, deterministic
 const SENTENCE_RE = /[^.!?]+[.!?]+/g;
+const INTRA_WORD_DOT = /(\w)\.(\w)/g; // dots inside file.ext, e.g. sidecar.ts
 
 // Patterns that indicate a sentence carries signal
 const SIGNAL_RE =
@@ -23,16 +24,25 @@ function hasSignal(sentence: string): boolean {
   return SIGNAL_RE.test(sentence);
 }
 
+function normalize(s: string): string[] {
+  return s.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(Boolean);
+}
+
 function similarity(a: string, b: string): number {
-  const wordsA = new Set(a.toLowerCase().split(/\s+/));
-  const wordsB = new Set(b.toLowerCase().split(/\s+/));
+  const wordsA = new Set(normalize(a));
+  const wordsB = new Set(normalize(b));
   const intersection = [...wordsA].filter((w) => wordsB.has(w)).length;
   const union = new Set([...wordsA, ...wordsB]).size;
   return union === 0 ? 0 : intersection / union;
 }
 
 export function compressObservation(body: string): string {
-  const rawSentences = body.match(SENTENCE_RE) ?? [body];
+  // Protect intra-word dots (file.ext, path/file.ts) so SENTENCE_RE doesn't split them
+  const PLACEHOLDER = '\x00';
+  const protected_ = body.replace(INTRA_WORD_DOT, `$1${PLACEHOLDER}$2`);
+  const rawSentences = (protected_.match(SENTENCE_RE) ?? [protected_]).map((s) =>
+    s.replace(new RegExp(PLACEHOLDER, 'g'), '.'),
+  );
 
   const kept: string[] = [];
   for (const raw of rawSentences) {

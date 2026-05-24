@@ -1,0 +1,51 @@
+import type { Observation } from '../types';
+
+export const OBSERVATIONS: Observation[] = [
+  {
+    id: 1,
+    title: 'Use FTS5 for full-text search in SQLite',
+    body: 'Use `searchObservations()` in src/db/sidecar.ts — avoid raw LIKE queries. FTS5 BM25 ranking gives relevance for free.',
+    score: 0.72,
+    source: 'manual',
+    project: 'memkit',
+    age: '2 min ago',
+  },
+  {
+    id: 2,
+    title: 'budget_override=0 is falsy in JS — use !== undefined',
+    body: '0 is a valid override meaning "inject nothing". Truthy check silently ignores the zero budget.',
+    score: 0.68,
+    source: 'test-discovery',
+    project: 'memkit',
+    age: '1 hr ago',
+  },
+  {
+    id: 3,
+    title: 'Use STATUS_GROUPS over inline status checks',
+    body: 'OrderStateMachineConfig owns the OrderStatuses enum in src/config/order-state.ts (renamed). Don\'t redefine inline.',
+    score: 0.55,
+    source: 'manual',
+    project: 'mobile-app',
+    age: '3 hr ago',
+    flag: 'stale-path',
+  },
+  {
+    id: 4,
+    title: 'Avoid mocking the database in tests',
+    body: 'Use real SQLite :memory: DB. Got burned when mocked tests passed but the prod migration failed.',
+    score: 0.81,
+    source: 'feedback',
+    project: 'memkit',
+    age: 'Yesterday',
+  },
+  {
+    id: 5,
+    title: 'Job postings always require approved_by',
+    body: 'Nullable in DB but validated at API layer. May be outdated — validator was updated for drafts.',
+    score: 0.18,
+    source: 'manual',
+    project: 'api-gateway',
+    age: '5 days ago',
+    flag: 'contradiction',
+  },
+];
